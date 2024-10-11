@@ -1,0 +1,29 @@
+{
+  "name": "ethos-protocol",
+  "version": "0.0.1",
+  "description": "A philanthropy protocol that distributes funds between impact creators and attesters",
+  "author": "Philipp Heuberger",
+  "license": "ISC",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,sol}\"",
+    "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,sol}\""
+  },
+  "dependencies": {
+    "semver": "^7.6.3"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "prettier-plugin-solidity": "^1.4.1"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  },
+  "lint-staged": {
+    "**/*.{js,jsx,ts,tsx,sol}": [
+      "prettier --write"
+    ]
+  }
+}
