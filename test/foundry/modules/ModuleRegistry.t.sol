@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import {Test} from "forge-std/Test.sol";
 
-import {ModuleRegistry} from "../../src/modules/ModuleRegistry.sol";
+import {ModuleRegistry} from "ethos/modules/ModuleRegistry.sol";
 
 contract ModuleRegistryTest is Test {
     ModuleRegistry public registry;
@@ -20,7 +20,11 @@ contract ModuleRegistryTest is Test {
     }
 
     function testGetNonExistentModule() public {
-        assertEq(registry.getModule("NonExistentModule"), address(0), "Non-existent module should return zero address");
+        assertEq(
+            registry.getModule("NonExistentModule"),
+            address(0),
+            "Non-existent module should return zero address"
+        );
     }
 
     function testRegisterMultipleModules() public {
@@ -30,8 +34,16 @@ contract ModuleRegistryTest is Test {
         registry.registerModule(MODULE_NAME, MODULE_ADDRESS);
         registry.registerModule(moduleName2, moduleAddress2);
 
-        assertEq(registry.getModule(MODULE_NAME), MODULE_ADDRESS, "First module address should match");
-        assertEq(registry.getModule(moduleName2), moduleAddress2, "Second module address should match");
+        assertEq(
+            registry.getModule(MODULE_NAME),
+            MODULE_ADDRESS,
+            "First module address should match"
+        );
+        assertEq(
+            registry.getModule(moduleName2),
+            moduleAddress2,
+            "Second module address should match"
+        );
     }
 
     function testOverwriteExistingModule() public {
@@ -40,7 +52,11 @@ contract ModuleRegistryTest is Test {
         registry.registerModule(MODULE_NAME, MODULE_ADDRESS);
         registry.registerModule(MODULE_NAME, newModuleAddress);
 
-        assertEq(registry.getModule(MODULE_NAME), newModuleAddress, "Module address should be overwritten");
+        assertEq(
+            registry.getModule(MODULE_NAME),
+            newModuleAddress,
+            "Module address should be overwritten"
+        );
     }
 
     function testRegisterModuleEmptyName() public {
@@ -50,11 +66,19 @@ contract ModuleRegistryTest is Test {
 
     function testRegisterModuleZeroAddress() public {
         registry.registerModule(MODULE_NAME, address(0));
-        assertEq(registry.getModule(MODULE_NAME), address(0), "Zero address module should be registered");
+        assertEq(
+            registry.getModule(MODULE_NAME),
+            address(0),
+            "Zero address module should be registered"
+        );
     }
 
     function testModulesMapping() public {
         registry.registerModule(MODULE_NAME, MODULE_ADDRESS);
-        assertEq(registry.modules(MODULE_NAME), MODULE_ADDRESS, "modules mapping should be accessible and correct");
+        assertEq(
+            registry.modules(MODULE_NAME),
+            MODULE_ADDRESS,
+            "modules mapping should be accessible and correct"
+        );
     }
 }
