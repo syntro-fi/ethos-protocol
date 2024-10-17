@@ -2,7 +2,7 @@
 src = "src"
 out = "out"
 libs = ["lib"]
-remappings = ["openzeppelin/=lib/openzeppelin-contracts/"]
+remappings = ["openzeppelin/=lib/openzeppelin-contracts/", "ethos/=src/"]
 
 [rpc_endpoints]
 optimism = "${OPTIMISM_RPC_URL}"
