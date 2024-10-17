@@ -1,4 +1,5 @@
 .env
+.cursorrules
 cache/
 node_modules/
 out/
