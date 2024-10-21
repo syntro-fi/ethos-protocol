@@ -5,18 +5,22 @@ import {Test} from "forge-std/Test.sol";
 
 import {DistributionStrategy} from "ethos/DistributionStrategy.sol";
 import {MissionConfig} from "ethos/missions/MissionConfig.sol";
-import {MissionFactory, ModuleRegistryNotProvided, AuthenticationModuleNotFound, EligibilityModuleNotFound} from "ethos/missions/MissionFactory.sol";
+import {MissionFactory, ModuleRegistryNotProvided, AuthenticationModuleNotFound, EligibilityModuleNotFound, InsufficientFunds} from "ethos/missions/MissionFactory.sol";
 import {ModuleRegistry} from "ethos/modules/ModuleRegistry.sol";
 import {Modules} from "ethos/modules/Modules.sol";
+
+import {FakeERC20} from "../helper/FakeERC20.sol";
 
 contract MissionFactoryTest is Test {
     MissionFactory public missionFactory;
     ModuleRegistry public moduleRegistry;
     address public owner;
+    FakeERC20 public fakeToken;
 
     function setUp() public {
         owner = address(this);
         moduleRegistry = new ModuleRegistry();
+        fakeToken = new FakeERC20("Fake Token", "FTK");
 
         missionFactory = new MissionFactory(address(moduleRegistry));
     }
@@ -41,8 +45,8 @@ contract MissionFactoryTest is Test {
                 startDate: block.timestamp,
                 // solhint-disable-next-line not-rely-on-time
                 endDate: block.timestamp + 7 days,
-                tokenAddress: address(0xabc),
-                bountyAmount: 1000,
+                tokenAddress: address(fakeToken),
+                bountyAmount: 1000 * 10 ** 18,
                 distributionStrategy: DistributionStrategy.Equal
             });
     }
@@ -59,10 +63,39 @@ contract MissionFactoryTest is Test {
         address fakeAuthModule = address(0x789);
         moduleRegistry.register(Modules.AUTHENTICATION_MODULE, fakeAuthModule);
 
+        fakeToken.approve(address(missionFactory), config.bountyAmount);
+        fakeToken.mint(address(this), config.bountyAmount);
+        uint256 balanceBefore = fakeToken.balanceOf(address(this));
 
         vm.expectEmit(false, false, false, false);
-        emit MissionFactory.MissionCreated(address(0));
+        emit MissionFactory.MissionCreated(address(0)); // We can't predict the exact address, so we use a dummy
+        address missionAddress = missionFactory.createMission(config);
 
+        assertTrue(missionAddress != address(0), "Mission address should not be zero");
+
+        uint256 balanceAfter = fakeToken.balanceOf(address(this));
+        assertEq(balanceAfter, balanceBefore - config.bountyAmount, "Incorrect amount transferred");
+
+        uint256 missionBalance = fakeToken.balanceOf(missionAddress);
+        assertEq(missionBalance, config.bountyAmount, "Mission did not receive correct amount");
+    }
+
+    function testCreateMissionRevertsInsufficientFunds() public {
+        MissionConfig memory config = _createFakeMissionConfig();
+        config.bountyAmount = fakeToken.balanceOf(address(this)) + 1;
+
+        address fakeContributorEligibilityModule = address(0x456);
+        moduleRegistry.register(
+            Modules.CONTRIBUTOR_ELIGIBILITY_MODULE,
+            fakeContributorEligibilityModule
+        );
+
+        address fakeAuthModule = address(0x789);
+        moduleRegistry.register(Modules.AUTHENTICATION_MODULE, fakeAuthModule);
+
+        fakeToken.approve(address(missionFactory), config.bountyAmount);
+
+        vm.expectRevert(InsufficientFunds.selector);
         missionFactory.createMission(config);
     }
 
