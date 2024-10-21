@@ -51,17 +51,29 @@ contract MissionFactoryTest is Test {
             });
     }
 
-    function testCreateMission() public {
-        MissionConfig memory config = _createFakeMissionConfig();
-
+    function _setupEligibilityModule() internal returns (address) {
         address fakeContributorEligibilityModule = address(0x456);
         moduleRegistry.register(
             Modules.CONTRIBUTOR_ELIGIBILITY_MODULE,
             fakeContributorEligibilityModule
         );
+        return fakeContributorEligibilityModule;
+    }
 
+    function _setupAuthModule() internal returns (address) {
         address fakeAuthModule = address(0x789);
         moduleRegistry.register(Modules.AUTHENTICATION_MODULE, fakeAuthModule);
+        return fakeAuthModule;
+    }
+
+    function _setupAllModules() internal returns (address, address) {
+        return (_setupEligibilityModule(), _setupAuthModule());
+    }
+
+    function testCreateMission() public {
+        MissionConfig memory config = _createFakeMissionConfig();
+
+        _setupAllModules();
 
         fakeToken.approve(address(missionFactory), config.bountyAmount);
         fakeToken.mint(address(this), config.bountyAmount);
@@ -84,14 +96,7 @@ contract MissionFactoryTest is Test {
         MissionConfig memory config = _createFakeMissionConfig();
         config.bountyAmount = fakeToken.balanceOf(address(this)) + 1;
 
-        address fakeContributorEligibilityModule = address(0x456);
-        moduleRegistry.register(
-            Modules.CONTRIBUTOR_ELIGIBILITY_MODULE,
-            fakeContributorEligibilityModule
-        );
-
-        address fakeAuthModule = address(0x789);
-        moduleRegistry.register(Modules.AUTHENTICATION_MODULE, fakeAuthModule);
+        _setupAllModules();
 
         fakeToken.approve(address(missionFactory), config.bountyAmount);
 
@@ -100,8 +105,7 @@ contract MissionFactoryTest is Test {
     }
 
     function testCreateMissionRevertsContributorEligibilityModuleNotFound() public {
-        address fakeAuthModule = address(0x789);
-        moduleRegistry.register(Modules.AUTHENTICATION_MODULE, fakeAuthModule);
+        _setupAuthModule();
 
         MissionConfig memory config = _createFakeMissionConfig();
 
@@ -110,12 +114,7 @@ contract MissionFactoryTest is Test {
     }
 
     function testCreateMissionRevertsAuthenticationModuleNotFound() public {
-        // Fake only the eligibility module
-        address fakeContributorEligibilityModule = address(0x456);
-        moduleRegistry.register(
-            Modules.CONTRIBUTOR_ELIGIBILITY_MODULE,
-            fakeContributorEligibilityModule
-        );
+        _setupEligibilityModule();
 
         MissionConfig memory config = _createFakeMissionConfig();
 
