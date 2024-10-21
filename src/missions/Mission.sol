@@ -33,7 +33,7 @@ contract Mission is MissionRoleManager {
     event UnclaimedFundsReturned(address indexed sponsor, uint256 amount);
     event ApplicationSubmitted(address indexed applicant);
     event ApplicationApproved(address indexed applicant, address indexed manager);
-    event ApplicationRejected(address indexed applicant, address indexed manager);
+    event ApplicationRejected(address indexed applicant, string reason, address indexed manager);
 
     constructor(
         MissionConfig memory _config,
@@ -86,16 +86,19 @@ contract Mission is MissionRoleManager {
         emit ApplicationSubmitted(msg.sender);
     }
 
-    function decideOnApplication(address applicant, bool approve) external onlyRole(MANAGER_ROLE) {
+    function acceptApplication(address applicant) external onlyRole(MANAGER_ROLE) {
         if (!_enrollments.applications[applicant]) revert ApplicationNotFound();
         if (_enrollments.contributors[applicant]) return;
 
-        if (approve) {
-            _enrollments.contributors[applicant] = true;
-            _grantContributorRole(applicant);
-            emit ApplicationApproved(applicant, msg.sender);
-        } else {
-            emit ApplicationRejected(applicant, msg.sender);
-        }
+        _enrollments.contributors[applicant] = true;
+        _grantContributorRole(applicant);
+        emit ApplicationApproved(applicant, msg.sender);
+    }
+
+    function rejectApplication(address applicant, string calldata reason) external onlyRole(MANAGER_ROLE) {
+        if (!_enrollments.applications[applicant]) revert ApplicationNotFound();
+        if (_enrollments.contributors[applicant]) return;
+
+        emit ApplicationRejected(applicant, reason, msg.sender);
     }
 }

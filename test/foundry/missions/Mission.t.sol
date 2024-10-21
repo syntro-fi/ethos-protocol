@@ -119,34 +119,40 @@ contract MissionTest is Test {
         mission.applyAsContributor();
     }
 
-    function testDecideOnApplicationPositive() public {
+    function testAcceptApplicationSucceed() public {
         contributorEligibility.setEligible(true);
         vm.prank(contributor);
         mission.applyAsContributor();
 
         vm.prank(manager);
-        vm.expectEmit(true, false, false, false);
+        vm.expectEmit(true, true, false, false);
         emit Mission.ApplicationApproved(contributor, manager);
-        mission.decideOnApplication(contributor, true);
+        mission.acceptApplication(contributor);
         assertTrue(mission.hasRole(mission.CONTRIBUTOR_ROLE(), contributor));
     }
 
-    function testDecideOnApplicationNegative() public {
+    function testRejectApplication() public {
         contributorEligibility.setEligible(true);
         vm.prank(contributor);
         mission.applyAsContributor();
 
         vm.prank(manager);
-        vm.expectEmit(true, false, false, false);
-        emit Mission.ApplicationRejected(contributor, manager);
-        mission.decideOnApplication(contributor, false);
+        vm.expectEmit(true, true, false, false);
+        emit Mission.ApplicationRejected(contributor, "a very good reason", manager);
+        mission.rejectApplication(contributor, "a very good reason");
         assertFalse(mission.hasRole(mission.CONTRIBUTOR_ROLE(), contributor));
     }
 
-    function testDecideOnApplicationNotFound() public {
+    function testApplicationNotFoundAccept() public {
         vm.prank(manager);
         vm.expectRevert(ApplicationNotFound.selector);
-        mission.decideOnApplication(contributor, true);
+        mission.acceptApplication(contributor);
+    }
+
+    function testApplicationNotFoundReject() public {
+        vm.prank(manager);
+        vm.expectRevert(ApplicationNotFound.selector);
+        mission.rejectApplication(contributor, "a reason");
     }
 
     function testManagerRoleManagement() public {
@@ -178,7 +184,7 @@ contract MissionTest is Test {
 
         // Approve application
         vm.prank(manager);
-        mission.decideOnApplication(contributor, true);
+        mission.acceptApplication(contributor);
         assertTrue(mission.hasRole(mission.CONTRIBUTOR_ROLE(), contributor));
 
         // Revoke contributor role
