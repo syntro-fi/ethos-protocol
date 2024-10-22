@@ -3,9 +3,9 @@ pragma solidity ^0.8.0;
 
 import {AccessControl} from "openzeppelin/contracts/access/AccessControl.sol";
 
-error EmptyModuleName();
-
 contract ModuleRegistry is AccessControl {
+    error EmptyModuleName();
+
     bytes32 public constant MODULE_MANAGER_ROLE = keccak256("MODULE_MANAGER_ROLE");
 
     mapping(string => address) public modules;

@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import {Test} from "forge-std/Test.sol";
 
-import {ModuleRegistry, EmptyModuleName} from "ethos/modules/ModuleRegistry.sol";
+import {ModuleRegistry} from "ethos/modules/ModuleRegistry.sol";
 
 contract ModuleRegistryTest is Test {
     ModuleRegistry public registry;
@@ -52,7 +52,7 @@ contract ModuleRegistryTest is Test {
     }
 
     function testRegisterModuleEmptyName() public {
-        vm.expectRevert(EmptyModuleName.selector);
+        vm.expectRevert(ModuleRegistry.EmptyModuleName.selector);
         registry.register("", MODULE_ADDRESS);
     }
 
