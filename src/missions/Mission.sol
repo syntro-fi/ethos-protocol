@@ -76,8 +76,7 @@ contract Mission is MissionRoleManager {
 
     function applyAsContributor() external {
         _authenticateContributor(msg.sender);
-        if (!contributorEligibilityModule.isEligible(msg.sender, config))
-            revert ContributorNotEligible();
+        contributorEligibilityModule.check(msg.sender, config);
         if (_enrollments.applications[msg.sender]) revert ApplicationAlreadySubmitted();
         if (_enrollments.contributors[msg.sender]) return;
 

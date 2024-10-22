@@ -3,9 +3,11 @@ pragma solidity ^0.8.0;
 
 import {Test} from "forge-std/Test.sol";
 
-import {Mission, ApplicationAlreadySubmitted, ApplicationNotFound, ContributorNotEligible, MissionNotEndedYet} from "ethos/missions/Mission.sol";
+import {Mission, ApplicationAlreadySubmitted, ApplicationNotFound, MissionNotEndedYet} from "ethos/missions/Mission.sol";
 import {MissionConfig} from "ethos/missions/MissionConfig.sol";
 import {DistributionStrategy} from "ethos/DistributionStrategy.sol";
+import {NotEligible} from "ethos/modules/eligibility/Errors.sol";
+
 import {FakeERC20} from "../helper/FakeERC20.sol";
 import {FakeAuthentication} from "../helper/FakeAuthentication.sol";
 import {FakeMissionEligibility} from "../helper/FakeMissionEligibility.sol";
@@ -115,7 +117,7 @@ contract MissionTest is Test {
     function testApplyAsContributorNotEligible() public {
         contributorEligibility.setEligible(false);
         vm.prank(contributor);
-        vm.expectRevert(ContributorNotEligible.selector);
+        vm.expectRevert(NotEligible.selector);
         mission.applyAsContributor();
     }
 
