@@ -2,10 +2,11 @@
 pragma solidity ^0.8.0;
 
 import {IERC20} from "openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {AccessControl} from "openzeppelin/contracts/access/AccessControl.sol";
 
-import {IMissionEligibility} from "ethos/modules/interfaces/IMissionEligibility.sol";
+import {Roles} from "ethos/Roles.sol";
 
-import {MissionRoleManager} from "./MissionRoleManager.sol";
+import {IMissionEligibility} from "./interfaces/IMissionEligibility.sol";
 import {MissionConfig} from "./MissionConfig.sol";
 
 error MissionNotEndedYet();
@@ -14,9 +15,10 @@ error ApplicationAlreadySubmitted();
 error ApplicationNotFound();
 error ContributorNotEligible();
 
-contract Mission is MissionRoleManager {
+contract Mission is AccessControl {
     MissionConfig public config;
-    IMissionEligibility public contributorEligibilityModule;
+    IMissionEligibility public contributorEligibility;
+    IMissionEligibility public verifierEligibility;
     IERC20 public token;
 
     struct EnrollmentState {
@@ -32,29 +34,38 @@ contract Mission is MissionRoleManager {
     event RewardsDistributed(uint256 impactId, address indexed recipient, uint256 amount);
     event UnclaimedFundsReturned(address indexed sponsor, uint256 amount);
     event ApplicationSubmitted(address indexed applicant);
-    event ApplicationApproved(address indexed applicant, address indexed manager);
-    event ApplicationRejected(address indexed applicant, string reason, address indexed manager);
+    event ApplicationApproved(address indexed applicant, address indexed remover);
+    event ApplicationRejected(address indexed applicant, string reason, address indexed remover);
+    event ContributorRemoved(address indexed contributor, address indexed remover);
 
     constructor(
         MissionConfig memory _config,
-        address _authModule,
-        address _contributorEligibilityModule,
+        address _contributorEligibility,
+        address _verifierEligibility,
         address _owner
-    ) MissionRoleManager(_authModule) {
+    ) {
         config = _config;
         token = IERC20(_config.tokenAddress);
-        contributorEligibilityModule = IMissionEligibility(_contributorEligibilityModule);
-
-        // Set up initial roles with the provided owner
+        contributorEligibility = IMissionEligibility(_contributorEligibility);
+        verifierEligibility = IMissionEligibility(_verifierEligibility);
         _setupInitialRoles(_owner, _config.sponsor);
     }
 
-    function submitImpact(string memory ipfsHash) external onlyRole(CONTRIBUTOR_ROLE) {
+    function _setupInitialRoles(address _owner, address _sponsor) private {
+        _grantRole(DEFAULT_ADMIN_ROLE, _owner);
+        _grantRole(Roles.SPONSOR_ROLE, _owner);
+        _grantRole(Roles.SPONSOR_ROLE, _sponsor);
+
+        _setRoleAdmin(Roles.CONTRIBUTOR_ROLE, Roles.SPONSOR_ROLE);
+        _setRoleAdmin(Roles.VERIFIER_ROLE, Roles.SPONSOR_ROLE);
+    }
+
+    function submitImpact(string memory ipfsHash) external onlyRole(Roles.CONTRIBUTOR_ROLE) {
         emit ImpactSubmitted(msg.sender, ipfsHash);
         revert NotImplemented();
     }
 
-    function verifyImpact(uint256 impactId) external onlyRole(VERIFIER_ROLE) {
+    function verifyImpact(uint256 impactId) external onlyRole(Roles.VERIFIER_ROLE) {
         emit ImpactVerified(msg.sender, impactId);
         revert NotImplemented();
     }
@@ -68,15 +79,14 @@ contract Mission is MissionRoleManager {
         revert NotImplemented();
     }
 
-    function returnUnclaimedFunds() external view onlyRole(SPONSOR_ROLE) {
+    function returnUnclaimedFunds() external view onlyRole(Roles.SPONSOR_ROLE) {
         // solhint-disable-next-line not-rely-on-time
         if (block.timestamp <= config.endDate) revert MissionNotEndedYet();
         revert NotImplemented();
     }
 
     function applyAsContributor() external {
-        _authenticateContributor(msg.sender);
-        contributorEligibilityModule.check(msg.sender, config);
+        contributorEligibility.check(msg.sender, config);
         if (_enrollments.applications[msg.sender]) revert ApplicationAlreadySubmitted();
         if (_enrollments.contributors[msg.sender]) return;
 
@@ -85,19 +95,30 @@ contract Mission is MissionRoleManager {
         emit ApplicationSubmitted(msg.sender);
     }
 
-    function acceptApplication(address applicant) external onlyRole(MANAGER_ROLE) {
+    function acceptApplication(address applicant) external onlyRole(Roles.SPONSOR_ROLE) {
         if (!_enrollments.applications[applicant]) revert ApplicationNotFound();
         if (_enrollments.contributors[applicant]) return;
 
         _enrollments.contributors[applicant] = true;
-        _grantContributorRole(applicant);
+        _grantRole(Roles.CONTRIBUTOR_ROLE, applicant);
         emit ApplicationApproved(applicant, msg.sender);
     }
 
-    function rejectApplication(address applicant, string calldata reason) external onlyRole(MANAGER_ROLE) {
+    function rejectApplication(
+        address applicant,
+        string calldata reason
+    ) external onlyRole(Roles.SPONSOR_ROLE) {
         if (!_enrollments.applications[applicant]) revert ApplicationNotFound();
         if (_enrollments.contributors[applicant]) return;
 
         emit ApplicationRejected(applicant, reason, msg.sender);
+    }
+
+    function removeContributor(address contributor) external onlyRole(Roles.SPONSOR_ROLE) {
+        if (!hasRole(Roles.CONTRIBUTOR_ROLE, contributor)) return;
+
+        _revokeRole(Roles.CONTRIBUTOR_ROLE, contributor);
+        _enrollments.contributors[contributor] = false;
+        emit ContributorRemoved(contributor, msg.sender);
     }
 }

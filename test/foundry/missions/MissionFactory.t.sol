@@ -5,11 +5,13 @@ import {Test} from "forge-std/Test.sol";
 
 import {DistributionStrategy} from "ethos/DistributionStrategy.sol";
 import {MissionConfig} from "ethos/missions/MissionConfig.sol";
-import {MissionFactory, ModuleRegistryNotProvided, AuthenticationModuleNotFound, EligibilityModuleNotFound, InsufficientFunds} from "ethos/missions/MissionFactory.sol";
+import {MissionFactory, EligibilityModuleNotFound, InsufficientFunds} from "ethos/missions/MissionFactory.sol";
 import {ModuleRegistry} from "ethos/modules/ModuleRegistry.sol";
-import {Modules} from "ethos/modules/Modules.sol";
+import {IEligibilityModuleManager} from "ethos/modules/eligibility/interfaces/IEligibilityModuleManager.sol";
 
-import {FakeERC20} from "../helper/FakeERC20.sol";
+import {FakeModule1, FakeModule2} from "../modules/FakeModules.sol";
+
+import {FakeERC20} from "./FakeERC20.sol";
 
 contract MissionFactoryTest is Test {
     MissionFactory public missionFactory;
@@ -22,18 +24,11 @@ contract MissionFactoryTest is Test {
         moduleRegistry = new ModuleRegistry();
         fakeToken = new FakeERC20("Fake Token", "FTK");
 
-        missionFactory = new MissionFactory(address(moduleRegistry));
+        missionFactory = new MissionFactory();
     }
 
-    function testConstructor() public {
-        assertTrue(missionFactory.hasRole(missionFactory.DEFAULT_ADMIN_ROLE(), address(this)));
-        assertEq(address(missionFactory.moduleRegistry()), address(moduleRegistry));
+    function testConstructor() public view {
         assertEq(missionFactory.owner(), owner);
-    }
-
-    function testConstructorReverts() public {
-        vm.expectRevert(ModuleRegistryNotProvided.selector);
-        new MissionFactory(address(0));
     }
 
     function _createFakeMissionConfig() internal view returns (MissionConfig memory) {
@@ -51,29 +46,28 @@ contract MissionFactoryTest is Test {
             });
     }
 
-    function _setupEligibilityModule() internal returns (address) {
-        address fakeContributorEligibilityModule = address(0x456);
-        moduleRegistry.register(
-            Modules.CONTRIBUTOR_ELIGIBILITY_MODULE,
-            fakeContributorEligibilityModule
-        );
-        return fakeContributorEligibilityModule;
+    function _setupContributorEligibilityModule() internal returns (address) {
+        FakeModule1 fakeModule = new FakeModule1();
+        moduleRegistry.register(address(fakeModule), "Fake Contributor Eligibility Module");
+        return address(fakeModule);
     }
 
-    function _setupAuthModule() internal returns (address) {
-        address fakeAuthModule = address(0x789);
-        moduleRegistry.register(Modules.AUTHENTICATION_MODULE, fakeAuthModule);
-        return fakeAuthModule;
+    function _setupVerifierEligibilityModule() internal returns (address) {
+        FakeModule2 fakeModule = new FakeModule2();
+        moduleRegistry.register(address(fakeModule), "Fake Verifier Eligibility Module");
+        return address(fakeModule);
     }
 
     function _setupAllModules() internal returns (address, address) {
-        return (_setupEligibilityModule(), _setupAuthModule());
+        address contributorEligibility = _setupContributorEligibilityModule();
+        address verifierEligibility = _setupVerifierEligibilityModule();
+        return (contributorEligibility, verifierEligibility);
     }
 
     function testCreateMission() public {
         MissionConfig memory config = _createFakeMissionConfig();
 
-        _setupAllModules();
+        (address contributorEligibility, address verifierEligibility) = _setupAllModules();
 
         fakeToken.approve(address(missionFactory), config.bountyAmount);
         fakeToken.mint(address(this), config.bountyAmount);
@@ -81,7 +75,11 @@ contract MissionFactoryTest is Test {
 
         vm.expectEmit(false, false, false, false);
         emit MissionFactory.MissionCreated(address(0)); // We can't predict the exact address, so we use a dummy
-        address missionAddress = missionFactory.createMission(config);
+        address missionAddress = missionFactory.createMission(
+            config,
+            contributorEligibility,
+            verifierEligibility
+        );
 
         assertTrue(missionAddress != address(0), "Mission address should not be zero");
 
@@ -96,29 +94,39 @@ contract MissionFactoryTest is Test {
         MissionConfig memory config = _createFakeMissionConfig();
         config.bountyAmount = fakeToken.balanceOf(address(this)) + 1;
 
-        _setupAllModules();
+        (address contributorEligibility, address verifierEligibility) = _setupAllModules();
 
         fakeToken.approve(address(missionFactory), config.bountyAmount);
 
         vm.expectRevert(InsufficientFunds.selector);
-        missionFactory.createMission(config);
+        missionFactory.createMission(config, contributorEligibility, verifierEligibility);
     }
 
     function testCreateMissionRevertsContributorEligibilityModuleNotFound() public {
-        _setupAuthModule();
+        address verifierEligibility = _setupVerifierEligibilityModule();
 
         MissionConfig memory config = _createFakeMissionConfig();
 
-        vm.expectRevert(EligibilityModuleNotFound.selector);
-        missionFactory.createMission(config);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                EligibilityModuleNotFound.selector,
+                IEligibilityModuleManager.UserType.Contributor
+            )
+        );
+        missionFactory.createMission(config, address(0), verifierEligibility);
     }
 
-    function testCreateMissionRevertsAuthenticationModuleNotFound() public {
-        _setupEligibilityModule();
+    function testCreateMissionRevertsVerifierEligibilityModuleNotFound() public {
+        address contributorEligibility = _setupContributorEligibilityModule();
 
         MissionConfig memory config = _createFakeMissionConfig();
 
-        vm.expectRevert(AuthenticationModuleNotFound.selector);
-        missionFactory.createMission(config);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                EligibilityModuleNotFound.selector,
+                IEligibilityModuleManager.UserType.Verifier
+            )
+        );
+        missionFactory.createMission(config, contributorEligibility, address(0));
     }
 }

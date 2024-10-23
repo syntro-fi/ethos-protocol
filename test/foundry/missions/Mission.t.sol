@@ -6,18 +6,18 @@ import {Test} from "forge-std/Test.sol";
 import {Mission, ApplicationAlreadySubmitted, ApplicationNotFound, MissionNotEndedYet} from "ethos/missions/Mission.sol";
 import {MissionConfig} from "ethos/missions/MissionConfig.sol";
 import {DistributionStrategy} from "ethos/DistributionStrategy.sol";
-import {NotEligible} from "ethos/modules/eligibility/Errors.sol";
+import {NotEligible} from "ethos/Errors.sol";
+import {Roles} from "ethos/Roles.sol";
 
-import {FakeERC20} from "../helper/FakeERC20.sol";
-import {FakeAuthentication} from "../helper/FakeAuthentication.sol";
-import {FakeMissionEligibility} from "../helper/FakeMissionEligibility.sol";
-import {MissionConfigHelper} from "../helper/MissionConfig.sol";
+import {FakeERC20} from "./FakeERC20.sol";
+import {FakeMissionEligibility} from "./FakeMissionEligibility.sol";
+import {MissionConfigHelper} from "./MissionConfigHelper.sol";
 
 contract MissionTest is Test {
     Mission public mission;
     FakeERC20 public token;
-    FakeAuthentication public authentication;
     FakeMissionEligibility public contributorEligibility;
+    FakeMissionEligibility public verifierEligibility;
     address public sponsor;
     address public manager;
     address public contributor;
@@ -27,13 +27,12 @@ contract MissionTest is Test {
     function setUp() public {
         missionFactoryOwner = address(this); // The test contract deploys the MissionFactory
         sponsor = address(1);
-        manager = address(2);
         contributor = address(3);
         verifier = address(4);
 
         token = new FakeERC20("Test Token", "TEST");
-        authentication = new FakeAuthentication();
         contributorEligibility = new FakeMissionEligibility();
+        verifierEligibility = new FakeMissionEligibility();
         MissionConfig memory config = MissionConfigHelper.createTestConfig(sponsor, address(token));
 
         // Ensure the sponsor has enough tokens to fund the mission
@@ -41,8 +40,8 @@ contract MissionTest is Test {
 
         mission = new Mission(
             config,
-            address(authentication),
             address(contributorEligibility),
+            address(verifierEligibility),
             missionFactoryOwner // Pass the MissionFactory owner (this test contract)
         );
 
@@ -51,27 +50,16 @@ contract MissionTest is Test {
         token.approve(address(mission), config.bountyAmount);
 
         setupRoles();
-
-        // Set all authentication to true for testing
-        authentication.setAuthedManager(manager, true);
-        authentication.setAuthedVerifier(verifier, true);
-        authentication.setAuthedContributor(contributor, true);
     }
 
     function setupRoles() public {
-        // Deployer grants the SPONSOR_ROLE to the sponsor
-        mission.grantRole(mission.SPONSOR_ROLE(), sponsor);
-        // Sponsor grants the MANAGER_ROLE to the manager
-        vm.prank(sponsor);
-        mission.grantRole(mission.MANAGER_ROLE(), manager);
+        mission.grantRole(Roles.SPONSOR_ROLE, sponsor);
     }
 
     function testInitialRoles() public {
         assertTrue(mission.hasRole(mission.DEFAULT_ADMIN_ROLE(), missionFactoryOwner));
-        assertTrue(mission.hasRole(mission.SPONSOR_ROLE(), missionFactoryOwner));
-        assertTrue(mission.hasRole(mission.MANAGER_ROLE(), missionFactoryOwner));
-        assertTrue(mission.hasRole(mission.SPONSOR_ROLE(), sponsor));
-        assertTrue(mission.hasRole(mission.MANAGER_ROLE(), sponsor));
+        assertTrue(mission.hasRole(Roles.SPONSOR_ROLE, missionFactoryOwner));
+        assertTrue(mission.hasRole(Roles.SPONSOR_ROLE, sponsor));
     }
 
     function testConstructor() public {
@@ -86,14 +74,12 @@ contract MissionTest is Test {
         ) = mission.config();
         assertEq(configSponsor, sponsor);
         assertEq(configTokenAddress, address(token));
-        assertTrue(mission.hasRole(mission.DEFAULT_ADMIN_ROLE(), missionFactoryOwner));
-        assertEq(address(mission.contributorEligibilityModule()), address(contributorEligibility));
+        assertEq(address(mission.contributorEligibility()), address(contributorEligibility));
         assertEq(configBountyAmount, 1000);
         assertEq(uint(configDistributionStrategy), uint(DistributionStrategy.Equal));
         assertEq(configDescription, "Test Mission");
         assertEq(configEndDate, block.timestamp + 1 weeks);
         assertEq(configStartDate, block.timestamp);
-        assertEq(address(mission.authModule()), address(authentication));
     }
 
     function testApplyAsContributorEmitsEvent() public {
@@ -126,11 +112,11 @@ contract MissionTest is Test {
         vm.prank(contributor);
         mission.applyAsContributor();
 
-        vm.prank(manager);
+        vm.prank(sponsor);
         vm.expectEmit(true, true, false, false);
-        emit Mission.ApplicationApproved(contributor, manager);
+        emit Mission.ApplicationApproved(contributor, sponsor);
         mission.acceptApplication(contributor);
-        assertTrue(mission.hasRole(mission.CONTRIBUTOR_ROLE(), contributor));
+        assertTrue(mission.hasRole(Roles.CONTRIBUTOR_ROLE, contributor));
     }
 
     function testRejectApplication() public {
@@ -138,44 +124,36 @@ contract MissionTest is Test {
         vm.prank(contributor);
         mission.applyAsContributor();
 
-        vm.prank(manager);
+        vm.prank(sponsor);
         vm.expectEmit(true, true, false, false);
-        emit Mission.ApplicationRejected(contributor, "a very good reason", manager);
+        emit Mission.ApplicationRejected(contributor, "a very good reason", sponsor);
         mission.rejectApplication(contributor, "a very good reason");
-        assertFalse(mission.hasRole(mission.CONTRIBUTOR_ROLE(), contributor));
+        assertFalse(mission.hasRole(Roles.CONTRIBUTOR_ROLE, contributor));
     }
 
     function testApplicationNotFoundAccept() public {
-        vm.prank(manager);
+        vm.prank(sponsor);
         vm.expectRevert(ApplicationNotFound.selector);
         mission.acceptApplication(contributor);
     }
 
     function testApplicationNotFoundReject() public {
-        vm.prank(manager);
+        vm.prank(sponsor);
         vm.expectRevert(ApplicationNotFound.selector);
         mission.rejectApplication(contributor, "a reason");
     }
 
-    function testManagerRoleManagement() public {
-        // Manager role is already set up in the setup function
-        // Revoke manager role
-        vm.prank(sponsor);
-        mission.revokeManagerRole(manager);
-        assertFalse(mission.hasRole(mission.MANAGER_ROLE(), manager));
-    }
-
     function testVerifierRoleManagement() public {
-        assertFalse(mission.hasRole(mission.VERIFIER_ROLE(), verifier));
+        assertFalse(mission.hasRole(Roles.VERIFIER_ROLE, verifier));
         // Grant verifier role
-        vm.prank(manager);
-        mission.grantVerifierRole(verifier);
-        assertTrue(mission.hasRole(mission.VERIFIER_ROLE(), verifier));
+        vm.prank(sponsor);
+        mission.grantRole(Roles.VERIFIER_ROLE, verifier);
+        assertTrue(mission.hasRole(Roles.VERIFIER_ROLE, verifier));
 
         // Revoke verifier role
-        vm.prank(manager);
-        mission.revokeVerifierRole(verifier);
-        assertFalse(mission.hasRole(mission.VERIFIER_ROLE(), verifier));
+        vm.prank(sponsor);
+        mission.revokeRole(Roles.VERIFIER_ROLE, verifier);
+        assertFalse(mission.hasRole(Roles.VERIFIER_ROLE, verifier));
     }
 
     function testContributorRoleManagement() public {
@@ -185,14 +163,14 @@ contract MissionTest is Test {
         mission.applyAsContributor();
 
         // Approve application
-        vm.prank(manager);
+        vm.prank(sponsor);
         mission.acceptApplication(contributor);
-        assertTrue(mission.hasRole(mission.CONTRIBUTOR_ROLE(), contributor));
+        assertTrue(mission.hasRole(Roles.CONTRIBUTOR_ROLE, contributor));
 
         // Revoke contributor role
-        vm.prank(manager);
-        mission.revokeContributorRole(contributor);
-        assertFalse(mission.hasRole(mission.CONTRIBUTOR_ROLE(), contributor));
+        vm.prank(sponsor);
+        mission.removeContributor(contributor);
+        assertFalse(mission.hasRole(Roles.CONTRIBUTOR_ROLE, contributor));
     }
 
     function testReturnUnclaimedFundsBeforeEnd() public {

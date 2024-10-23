@@ -5,7 +5,7 @@ import {DistributionStrategy} from "ethos/DistributionStrategy.sol";
 
 struct MissionConfig {
     address sponsor;
-    string description;
+    string description; // TODO: move to IPFS or EAS
     uint256 startDate;
     uint256 endDate;
     address tokenAddress;

@@ -2,71 +2,106 @@
 pragma solidity ^0.8.0;
 
 import {Test} from "forge-std/Test.sol";
+import {IAccessControl} from "openzeppelin/contracts/access/IAccessControl.sol";
 
 import {ModuleRegistry} from "ethos/modules/ModuleRegistry.sol";
+import {IModule} from "ethos/modules/interfaces/IModule.sol";
+import {FakeModule1, FakeModule2} from "./FakeModules.sol";
 
 contract ModuleRegistryTest is Test {
     ModuleRegistry public registry;
-    address public constant MODULE_ADDRESS = address(0x123);
-    string public constant MODULE_NAME = "TestModule";
+    address public owner;
+    FakeModule1 public fakeModule;
+    FakeModule2 public fakeModule2;
 
     function setUp() public {
+        owner = address(this);
         registry = new ModuleRegistry();
+        fakeModule = new FakeModule1();
+        fakeModule2 = new FakeModule2();
     }
 
-    function testRegisterModule() public {
-        registry.register(MODULE_NAME, MODULE_ADDRESS);
-        assertEq(registry.get(MODULE_NAME), MODULE_ADDRESS, "Module address should match");
+    function testRegister() public {
+        registry.register(address(fakeModule), "Fake Module");
+
+        ModuleRegistry.ModuleInfo[] memory modules = registry.getAll();
+        assertEq(modules.length, 1);
+        assertEq(modules[0].addr, address(fakeModule));
+        assertEq(modules[0].name, "Fake Module");
     }
 
-    function testGetNonExistentModule() public {
-        assertEq(
-            registry.get("NonExistentModule"),
-            address(0),
-            "Non-existent module should return zero address"
+    function testRegisterRevertIfAlreadyRegistered() public {
+        registry.register(address(fakeModule), "Fake Module");
+
+        vm.expectRevert(ModuleRegistry.ModuleAlreadyRegistered.selector);
+        registry.register(address(fakeModule), "Fake Module");
+    }
+
+    function testRegisterRevertIfInvalidModule() public {
+        vm.expectRevert(ModuleRegistry.InvalidModule.selector);
+        registry.register(address(0), "Invalid Module");
+    }
+
+    function testRemove() public {
+        registry.register(address(fakeModule), "Fake Module");
+        registry.remove(address(fakeModule));
+
+        assertEq(registry.getAll().length, 0);
+    }
+
+    function testRemoveRevertIfNotRegistered() public {
+        vm.expectRevert(ModuleRegistry.ModuleNotRegistered.selector);
+        registry.remove(address(fakeModule));
+    }
+
+    function testRemoveRevertIfInvalidModule() public {
+        vm.expectRevert(ModuleRegistry.InvalidModule.selector);
+        registry.remove(address(0));
+    }
+
+    function testGet() public {
+        registry.register(address(fakeModule), "Fake Module");
+
+        assertEq(registry.get(fakeModule.moduleId()), address(fakeModule));
+    }
+
+    function testGetAll() public {
+        registry.register(address(fakeModule), "Fake Module 1");
+        registry.register(address(fakeModule2), "Fake Module 2");
+
+        ModuleRegistry.ModuleInfo[] memory modules = registry.getAll();
+        assertEq(modules.length, 2);
+        assertEq(modules[0].addr, address(fakeModule));
+        assertEq(modules[0].name, "Fake Module 1");
+        assertEq(modules[1].addr, address(fakeModule2));
+        assertEq(modules[1].name, "Fake Module 2");
+    }
+
+    function testOnlyAdminCanRegister() public {
+        address nonAdmin = address(0x1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                nonAdmin,
+                registry.DEFAULT_ADMIN_ROLE()
+            )
         );
+        vm.prank(nonAdmin);
+        registry.register(address(fakeModule), "Fake Module");
     }
 
-    function testRegisterMultipleModules() public {
-        string memory moduleName2 = "AnotherModule";
-        address moduleAddress2 = address(0x456);
+    function testOnlyAdminCanRemove() public {
+        registry.register(address(fakeModule), "Fake Module");
 
-        registry.register(MODULE_NAME, MODULE_ADDRESS);
-        registry.register(moduleName2, moduleAddress2);
-
-        assertEq(registry.get(MODULE_NAME), MODULE_ADDRESS, "First module address should match");
-        assertEq(registry.get(moduleName2), moduleAddress2, "Second module address should match");
-    }
-
-    function testOverwriteExistingModule() public {
-        address newModuleAddress = address(0x789);
-
-        registry.register(MODULE_NAME, MODULE_ADDRESS);
-        registry.register(MODULE_NAME, newModuleAddress);
-
-        assertEq(
-            registry.get(MODULE_NAME),
-            newModuleAddress,
-            "Module address should be overwritten"
+        address nonAdmin = address(0x1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                nonAdmin,
+                registry.DEFAULT_ADMIN_ROLE()
+            )
         );
-    }
-
-    function testRegisterModuleEmptyName() public {
-        vm.expectRevert(ModuleRegistry.EmptyModuleName.selector);
-        registry.register("", MODULE_ADDRESS);
-    }
-
-    function testRegisterModuleZeroAddress() public {
-        registry.register(MODULE_NAME, address(0));
-        assertEq(registry.get(MODULE_NAME), address(0), "Zero address module should be registered");
-    }
-
-    function testModulesMapping() public {
-        registry.register(MODULE_NAME, MODULE_ADDRESS);
-        assertEq(
-            registry.get(MODULE_NAME),
-            MODULE_ADDRESS,
-            "modules mapping should be accessible and correct"
-        );
+        vm.prank(nonAdmin);
+        registry.remove(address(fakeModule));
     }
 }
