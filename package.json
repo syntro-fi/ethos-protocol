@@ -5,7 +5,10 @@
   "author": "Philipp Heuberger",
   "license": "ISC",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "forge test",
+    "build": "forge build",
+    "deploy:local": "forge script script/Deploy.s.sol --broadcast --fork-url http://localhost:8545",
+    "node:local": "anvil",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,sol}\"",
     "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,sol}\"",
     "lint:sol": "solhint \"**/*.sol\""
