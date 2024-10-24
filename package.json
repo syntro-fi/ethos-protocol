@@ -11,7 +11,10 @@
     "node:local": "anvil",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,sol}\"",
     "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,sol}\"",
-    "lint:sol": "solhint \"**/*.sol\""
+    "lint:sol": "solhint \"**/*.sol\"",
+    "share-artifacts": "bash build/share-artifacts.sh",
+    "build:all": "bash build/build-and-share.sh",
+    "spinup:local": "bash build/spinup-local.sh"
   },
   "dependencies": {
     "semver": "^7.6.3"

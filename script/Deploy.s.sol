@@ -16,23 +16,28 @@ contract DeployScript is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
-        // Module registry
+        // Deploy contracts
         ModuleRegistry moduleRegistry = new ModuleRegistry();
-        // Contributor eligibility manager
         ContributorEligibilityManager contributorEligibilityManager = new ContributorEligibilityManager(
                 address(moduleRegistry)
             );
-        // Verifier eligibility manager
         VerifierEligibilityManager verifierEligibilityManager = new VerifierEligibilityManager(
             address(moduleRegistry)
         );
-        // Passport KYC module
         PassportKYCModule passportKYCModule = new PassportKYCModule();
-        // Always eligible module
         AlwaysEligibleModule alwaysEligibleModule = new AlwaysEligibleModule();
 
-        moduleRegistry.register(address(passportKYCModule), "Passport KYC Module");
-        moduleRegistry.register(address(alwaysEligibleModule), "Always Eligible Module");
+        // Register and enable modules
+        moduleRegistry.register(
+            address(passportKYCModule),
+            "Passport KYC Module",
+            ModuleRegistry.ModuleCategory.Eligibility
+        );
+        moduleRegistry.register(
+            address(alwaysEligibleModule),
+            "Always Eligible Module",
+            ModuleRegistry.ModuleCategory.Eligibility
+        );
         contributorEligibilityManager.enable(address(alwaysEligibleModule));
         verifierEligibilityManager.enable(address(passportKYCModule));
 
