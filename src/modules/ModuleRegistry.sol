@@ -13,10 +13,16 @@ contract ModuleRegistry is AccessControl {
     error ModuleNotRegistered();
     error InvalidModule();
 
+    // Enums
+    enum ModuleCategory {
+        Eligibility
+    }
+
     // Structs
     struct ModuleInfo {
         address addr;
         string name;
+        ModuleCategory category;
     }
 
     // State variables
@@ -24,7 +30,12 @@ contract ModuleRegistry is AccessControl {
     bytes4[] private _moduleIds;
 
     // Events
-    event ModuleRegistered(bytes4 indexed id, address indexed module, string name);
+    event ModuleRegistered(
+        bytes4 indexed id,
+        address indexed module,
+        string name,
+        ModuleCategory indexed category
+    );
     event ModuleRemoved(bytes4 indexed id, address indexed module);
 
     constructor() {
@@ -34,16 +45,21 @@ contract ModuleRegistry is AccessControl {
     /// @notice Register a new module
     /// @param module Address of the module to register
     /// @param name Name of the module
-    function register(address module, string memory name) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    /// @param category Category of the module
+    function register(
+        address module,
+        string memory name,
+        ModuleCategory category
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (module == address(0)) revert InvalidModule();
 
         bytes4 id = IModule(module).moduleId();
         if (_modules[id].addr != address(0)) revert ModuleAlreadyRegistered();
 
-        _modules[id] = ModuleInfo(module, name);
+        _modules[id] = ModuleInfo(module, name, category);
         _moduleIds.push(id);
 
-        emit ModuleRegistered(id, module, name);
+        emit ModuleRegistered(id, module, name, category);
     }
 
     /// @notice Remove a module from the registry
@@ -75,7 +91,7 @@ contract ModuleRegistry is AccessControl {
     }
 
     /// @notice Get all registered modules
-    /// @return An array of ModuleInfo structs containing address and name of all modules
+    /// @return An array of ModuleInfo structs containing address, name, and category of all modules
     function getAll() external view returns (ModuleInfo[] memory) {
         ModuleInfo[] memory allModules = new ModuleInfo[](_moduleIds.length);
 
