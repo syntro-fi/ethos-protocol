@@ -35,14 +35,14 @@ contract MissionFactoryTest is Test {
         return
             MissionConfig({
                 sponsor: address(this),
-                description: "Test Mission",
                 // solhint-disable-next-line not-rely-on-time
                 startDate: block.timestamp,
                 // solhint-disable-next-line not-rely-on-time
                 endDate: block.timestamp + 7 days,
                 tokenAddress: address(fakeToken),
                 bountyAmount: 1000 * 10 ** 18,
-                distributionStrategy: DistributionStrategy.Equal
+                distributionStrategy: DistributionStrategy.Equal,
+                addtlDataCid: "QmTestAddtlDataCid"
             });
     }
 

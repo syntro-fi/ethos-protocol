@@ -65,19 +65,19 @@ contract MissionTest is Test {
     function testConstructor() public {
         (
             address configSponsor,
-            string memory configDescription,
             uint256 configStartDate,
             uint256 configEndDate,
             address configTokenAddress,
             uint256 configBountyAmount,
-            DistributionStrategy configDistributionStrategy
+            DistributionStrategy configDistributionStrategy,
+            string memory configAddtlDataCid
         ) = mission.config();
         assertEq(configSponsor, sponsor);
         assertEq(configTokenAddress, address(token));
         assertEq(address(mission.contributorEligibility()), address(contributorEligibility));
         assertEq(configBountyAmount, 1000);
         assertEq(uint(configDistributionStrategy), uint(DistributionStrategy.Equal));
-        assertEq(configDescription, "Test Mission");
+        assertEq(configAddtlDataCid, "QmTestAddtlDataCid");
         assertEq(configEndDate, block.timestamp + 1 weeks);
         assertEq(configStartDate, block.timestamp);
     }

@@ -12,14 +12,14 @@ library MissionConfigHelper {
         return
             MissionConfig({
                 sponsor: sponsor,
-                description: "Test Mission",
                 // solhint-disable-next-line not-rely-on-time
                 startDate: block.timestamp,
                 // solhint-disable-next-line not-rely-on-time
                 endDate: block.timestamp + 1 weeks,
                 tokenAddress: tokenAddress,
                 bountyAmount: 1000,
-                distributionStrategy: DistributionStrategy.Equal
+                distributionStrategy: DistributionStrategy.Equal,
+                addtlDataCid: "QmTestAddtlDataCid"
             });
     }
 }
