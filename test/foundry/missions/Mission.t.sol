@@ -56,13 +56,13 @@ contract MissionTest is Test {
         mission.grantRole(Roles.SPONSOR_ROLE, sponsor);
     }
 
-    function testInitialRoles() public {
+    function testInitialRoles() public view {
         assertTrue(mission.hasRole(mission.DEFAULT_ADMIN_ROLE(), missionFactoryOwner));
         assertTrue(mission.hasRole(Roles.SPONSOR_ROLE, missionFactoryOwner));
         assertTrue(mission.hasRole(Roles.SPONSOR_ROLE, sponsor));
     }
 
-    function testConstructor() public {
+    function testConstructor() public view {
         (
             address configSponsor,
             uint256 configStartDate,
