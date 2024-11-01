@@ -22,28 +22,45 @@ contract ModuleRegistryTest is Test {
     }
 
     function testRegister() public {
-        registry.register(address(fakeModule), "Fake Module");
+        registry.register(
+            address(fakeModule),
+            "Fake Module",
+            ModuleRegistry.ModuleCategory.Eligibility
+        );
 
         ModuleRegistry.ModuleInfo[] memory modules = registry.getAll();
         assertEq(modules.length, 1);
         assertEq(modules[0].addr, address(fakeModule));
         assertEq(modules[0].name, "Fake Module");
+        assertEq(uint(modules[0].category), uint(ModuleRegistry.ModuleCategory.Eligibility));
     }
 
     function testRegisterRevertIfAlreadyRegistered() public {
-        registry.register(address(fakeModule), "Fake Module");
+        registry.register(
+            address(fakeModule),
+            "Fake Module",
+            ModuleRegistry.ModuleCategory.Eligibility
+        );
 
         vm.expectRevert(ModuleRegistry.ModuleAlreadyRegistered.selector);
-        registry.register(address(fakeModule), "Fake Module");
+        registry.register(
+            address(fakeModule),
+            "Fake Module",
+            ModuleRegistry.ModuleCategory.Eligibility
+        );
     }
 
     function testRegisterRevertIfInvalidModule() public {
         vm.expectRevert(ModuleRegistry.InvalidModule.selector);
-        registry.register(address(0), "Invalid Module");
+        registry.register(address(0), "Invalid Module", ModuleRegistry.ModuleCategory.Eligibility);
     }
 
     function testRemove() public {
-        registry.register(address(fakeModule), "Fake Module");
+        registry.register(
+            address(fakeModule),
+            "Fake Module",
+            ModuleRegistry.ModuleCategory.Eligibility
+        );
         registry.remove(address(fakeModule));
 
         assertEq(registry.getAll().length, 0);
@@ -60,21 +77,35 @@ contract ModuleRegistryTest is Test {
     }
 
     function testGet() public {
-        registry.register(address(fakeModule), "Fake Module");
+        registry.register(
+            address(fakeModule),
+            "Fake Module",
+            ModuleRegistry.ModuleCategory.Eligibility
+        );
 
         assertEq(registry.get(fakeModule.moduleId()), address(fakeModule));
     }
 
     function testGetAll() public {
-        registry.register(address(fakeModule), "Fake Module 1");
-        registry.register(address(fakeModule2), "Fake Module 2");
+        registry.register(
+            address(fakeModule),
+            "Fake Module 1",
+            ModuleRegistry.ModuleCategory.Eligibility
+        );
+        registry.register(
+            address(fakeModule2),
+            "Fake Module 2",
+            ModuleRegistry.ModuleCategory.Eligibility
+        );
 
         ModuleRegistry.ModuleInfo[] memory modules = registry.getAll();
         assertEq(modules.length, 2);
         assertEq(modules[0].addr, address(fakeModule));
         assertEq(modules[0].name, "Fake Module 1");
+        assertEq(uint(modules[0].category), uint(ModuleRegistry.ModuleCategory.Eligibility));
         assertEq(modules[1].addr, address(fakeModule2));
         assertEq(modules[1].name, "Fake Module 2");
+        assertEq(uint(modules[1].category), uint(ModuleRegistry.ModuleCategory.Eligibility));
     }
 
     function testOnlyAdminCanRegister() public {
@@ -87,11 +118,19 @@ contract ModuleRegistryTest is Test {
             )
         );
         vm.prank(nonAdmin);
-        registry.register(address(fakeModule), "Fake Module");
+        registry.register(
+            address(fakeModule),
+            "Fake Module",
+            ModuleRegistry.ModuleCategory.Eligibility
+        );
     }
 
     function testOnlyAdminCanRemove() public {
-        registry.register(address(fakeModule), "Fake Module");
+        registry.register(
+            address(fakeModule),
+            "Fake Module",
+            ModuleRegistry.ModuleCategory.Eligibility
+        );
 
         address nonAdmin = address(0x1);
         vm.expectRevert(

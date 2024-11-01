@@ -48,13 +48,21 @@ contract MissionFactoryTest is Test {
 
     function _setupContributorEligibilityModule() internal returns (address) {
         FakeModule1 fakeModule = new FakeModule1();
-        moduleRegistry.register(address(fakeModule), "Fake Contributor Eligibility Module");
+        moduleRegistry.register(
+            address(fakeModule),
+            "Fake Contributor Eligibility Module",
+            ModuleRegistry.ModuleCategory.Eligibility
+        );
         return address(fakeModule);
     }
 
     function _setupVerifierEligibilityModule() internal returns (address) {
         FakeModule2 fakeModule = new FakeModule2();
-        moduleRegistry.register(address(fakeModule), "Fake Verifier Eligibility Module");
+        moduleRegistry.register(
+            address(fakeModule),
+            "Fake Verifier Eligibility Module",
+            ModuleRegistry.ModuleCategory.Eligibility
+        );
         return address(fakeModule);
     }
 
