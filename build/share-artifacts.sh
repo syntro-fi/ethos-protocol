@@ -12,11 +12,17 @@ echo "ethos-enums.ts copied to: $DEST_ENUMS"
 
 # Copy ABIs
 SOURCE_ABIS="out"
-DEST_ABIS="../indexer/abis"
+DEST_ABIS_INDEXER="../indexer/abis"
+DEST_ABIS_FRONTEND="../frontend/src/contracts/abis"
 
-mkdir -p "$DEST_ABIS"
+# Create both destination directories
+mkdir -p "$DEST_ABIS_INDEXER"
+mkdir -p "$DEST_ABIS_FRONTEND"
 
-cp -r "$SOURCE_ABIS"/* "$DEST_ABIS/"
-echo "All ABIs copied to: $DEST_ABIS"
+# Copy to both destinations
+cp -r "$SOURCE_ABIS"/* "$DEST_ABIS_INDEXER/"
+cp -r "$SOURCE_ABIS"/* "$DEST_ABIS_FRONTEND/"
+echo "All ABIs copied to: $DEST_ABIS_INDEXER and $DEST_ABIS_FRONTEND"
 
 echo "Generation and copying completed successfully."
+
