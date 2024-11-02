@@ -8,9 +8,8 @@ anvil &
 # Wait for the node to start
 sleep 5
 
-# Deploy contracts
+# Deploy contracts with specified target contract since we have a fake ERC20 contract in there
 echo "Deploying contracts..."
-forge script script/Deploy.s.sol --broadcast --fork-url http://localhost:8545
-
+forge script script/Deploy.s.sol:DeployScript --broadcast --fork-url http://localhost:8545
 
 echo "Local deployment completed."
