@@ -8,6 +8,7 @@ import "ethos/modules/eligibility/ContributorEligibilityManager.sol";
 import "ethos/modules/eligibility/VerifierEligibilityManager.sol";
 import "ethos/modules/eligibility/PassportKYCModule.sol";
 import "ethos/modules/eligibility/AlwaysEligibleModule.sol";
+import "ethos/missions/MissionFactory.sol";
 
 contract DeployScript is Script {
     function setUp() public {}
@@ -40,6 +41,8 @@ contract DeployScript is Script {
         );
         contributorEligibilityManager.enable(address(alwaysEligibleModule));
         verifierEligibilityManager.enable(address(passportKYCModule));
+
+        MissionFactory mf = new MissionFactory();
 
         vm.stopBroadcast();
     }
