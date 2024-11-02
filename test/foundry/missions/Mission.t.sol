@@ -36,9 +36,6 @@ contract MissionTest is Test {
 
         MissionConfig memory config = MissionConfigHelper.createTestConfig(sponsor);
 
-        // Ensure the sponsor has enough tokens to fund the mission
-        token.mint(sponsor, config.bountyAmount);
-
         mission = new Mission(
             config,
             address(contributorEligibility),
@@ -46,10 +43,6 @@ contract MissionTest is Test {
             address(token),
             missionFactoryOwner
         );
-
-        // Approve the mission contract to spend tokens on behalf of the sponsor
-        vm.prank(sponsor);
-        token.approve(address(mission), config.bountyAmount);
 
         setupRoles();
     }
@@ -69,13 +62,11 @@ contract MissionTest is Test {
             address configSponsor,
             uint256 configStartDate,
             uint256 configEndDate,
-            uint256 configBountyAmount,
             DistributionStrategy configDistributionStrategy,
             string memory configAddtlDataCid
         ) = mission.config();
         assertEq(configSponsor, sponsor);
         assertEq(address(mission.contributorEligibility()), address(contributorEligibility));
-        assertEq(configBountyAmount, 1000);
         assertEq(uint(configDistributionStrategy), uint(DistributionStrategy.Equal));
         assertEq(configAddtlDataCid, "QmTestAddtlDataCid");
         assertEq(configEndDate, block.timestamp + 1 weeks);

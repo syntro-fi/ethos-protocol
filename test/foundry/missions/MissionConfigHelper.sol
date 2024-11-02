@@ -13,7 +13,6 @@ library MissionConfigHelper {
                 startDate: block.timestamp,
                 // solhint-disable-next-line not-rely-on-time
                 endDate: block.timestamp + 1 weeks,
-                bountyAmount: 1000,
                 distributionStrategy: DistributionStrategy.Equal,
                 addtlDataCid: "QmTestAddtlDataCid"
             });

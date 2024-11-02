@@ -72,7 +72,6 @@ contract MissionFactoryTest is Test {
                 startDate: block.timestamp,
                 // solhint-disable-next-line not-rely-on-time
                 endDate: block.timestamp + 7 days,
-                bountyAmount: 1000 * 10 ** 18,
                 distributionStrategy: DistributionStrategy.Equal,
                 addtlDataCid: "QmTestAddtlDataCid"
             });

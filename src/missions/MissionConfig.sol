@@ -7,7 +7,6 @@ struct MissionConfig {
     address sponsor;
     uint256 startDate;
     uint256 endDate;
-    uint256 bountyAmount;
     DistributionStrategy distributionStrategy;
     string addtlDataCid;
 }
@@ -15,13 +14,11 @@ struct MissionConfig {
 error InvalidSponsorAddress();
 error MissingAddtlDataCid();
 error InvalidDateRange();
-error InvalidBountyAmount();
 
 library MissionConfigValidator {
     function validate(MissionConfig memory config) internal pure {
         if (config.sponsor == address(0)) revert InvalidSponsorAddress();
         if (bytes(config.addtlDataCid).length == 0) revert MissingAddtlDataCid();
         if (config.startDate >= config.endDate) revert InvalidDateRange();
-        if (config.bountyAmount == 0) revert InvalidBountyAmount();
     }
 }
