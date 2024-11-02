@@ -11,18 +11,28 @@ import {MissionConfig} from "./MissionConfig.sol";
 import {Mission} from "./Mission.sol";
 
 error EligibilityModuleNotFound(IEligibilityModuleManager.UserType userType);
-error MissionNotFound();
-error InsufficientFunds();
+error InvalidTokenAddress();
 
 contract MissionFactory is AccessControl {
     using SafeERC20 for IERC20;
 
     address public owner;
+    address public allowedToken;
 
     event MissionCreated(address missionAddress);
+    event AllowedTokenUpdated(address indexed newToken);
 
-    constructor() {
+    constructor(address initialToken) {
+        if (initialToken == address(0)) revert InvalidTokenAddress();
+        allowedToken = initialToken;
         owner = msg.sender;
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    }
+
+    function setAllowedToken(address newToken) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (newToken == address(0)) revert InvalidTokenAddress();
+        allowedToken = newToken;
+        emit AllowedTokenUpdated(newToken);
     }
 
     function createMission(
@@ -37,18 +47,13 @@ contract MissionFactory is AccessControl {
             revert EligibilityModuleNotFound(IEligibilityModuleManager.UserType.Verifier);
         }
 
-        IERC20 token = IERC20(config.tokenAddress);
-        uint256 balance = token.balanceOf(msg.sender);
-        if (balance < config.bountyAmount) revert InsufficientFunds();
-
         Mission newMission = new Mission(
             config,
             contributorEligibility,
             verifierEligibility,
+            allowedToken,
             owner
         );
-
-        token.safeTransferFrom(msg.sender, address(newMission), config.bountyAmount);
 
         emit MissionCreated(address(newMission));
         return address(newMission);

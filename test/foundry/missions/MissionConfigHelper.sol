@@ -5,10 +5,7 @@ import {MissionConfig} from "ethos/missions/MissionConfig.sol";
 import {DistributionStrategy} from "ethos/DistributionStrategy.sol";
 
 library MissionConfigHelper {
-    function createTestConfig(
-        address sponsor,
-        address tokenAddress
-    ) internal view returns (MissionConfig memory) {
+    function createTestConfig(address sponsor) internal view returns (MissionConfig memory) {
         return
             MissionConfig({
                 sponsor: sponsor,
@@ -16,7 +13,6 @@ library MissionConfigHelper {
                 startDate: block.timestamp,
                 // solhint-disable-next-line not-rely-on-time
                 endDate: block.timestamp + 1 weeks,
-                tokenAddress: tokenAddress,
                 bountyAmount: 1000,
                 distributionStrategy: DistributionStrategy.Equal,
                 addtlDataCid: "QmTestAddtlDataCid"

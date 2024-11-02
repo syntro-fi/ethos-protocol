@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import {IERC20} from "openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {AccessControl} from "openzeppelin/contracts/access/AccessControl.sol";
+import {SafeERC20} from "openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {Roles} from "ethos/Roles.sol";
 
@@ -14,12 +15,16 @@ error NotImplemented();
 error ApplicationAlreadySubmitted();
 error ApplicationNotFound();
 error ContributorNotEligible();
+error InsufficientFunds();
+error InvalidTokenAddress();
 
 contract Mission is AccessControl {
+    using SafeERC20 for IERC20;
+
     MissionConfig public config;
     IMissionEligibility public contributorEligibility;
     IMissionEligibility public verifierEligibility;
-    IERC20 public token;
+    IERC20 public immutable token;
 
     struct EnrollmentState {
         mapping(address => bool) applications;
@@ -37,15 +42,18 @@ contract Mission is AccessControl {
     event ApplicationApproved(address indexed applicant, address indexed remover);
     event ApplicationRejected(address indexed applicant, string reason, address indexed remover);
     event ContributorRemoved(address indexed contributor, address indexed remover);
+    event MissionFunded(address indexed funder, uint256 amount);
 
     constructor(
         MissionConfig memory _config,
         address _contributorEligibility,
         address _verifierEligibility,
+        address _token,
         address _owner
     ) {
+        if (_token == address(0)) revert InvalidTokenAddress();
         config = _config;
-        token = IERC20(_config.tokenAddress);
+        token = IERC20(_token);
         contributorEligibility = IMissionEligibility(_contributorEligibility);
         verifierEligibility = IMissionEligibility(_verifierEligibility);
         _setupInitialRoles(_owner, _config.sponsor);
@@ -120,5 +128,13 @@ contract Mission is AccessControl {
         _revokeRole(Roles.CONTRIBUTOR_ROLE, contributor);
         _enrollments.contributors[contributor] = false;
         emit ContributorRemoved(contributor, msg.sender);
+    }
+
+    function fundWithERC20(uint256 amount) external {
+        uint256 balance = token.balanceOf(msg.sender);
+        if (balance < amount) revert InsufficientFunds();
+
+        token.safeTransferFrom(msg.sender, address(this), amount);
+        emit MissionFunded(msg.sender, amount);
     }
 }

@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import {Test} from "forge-std/Test.sol";
 
-import {Mission, ApplicationAlreadySubmitted, ApplicationNotFound, MissionNotEndedYet} from "ethos/missions/Mission.sol";
+import {Mission, ApplicationAlreadySubmitted, ApplicationNotFound, MissionNotEndedYet, InsufficientFunds} from "ethos/missions/Mission.sol";
 import {MissionConfig} from "ethos/missions/MissionConfig.sol";
 import {DistributionStrategy} from "ethos/DistributionStrategy.sol";
 import {NotEligible} from "ethos/Errors.sol";
@@ -33,7 +33,8 @@ contract MissionTest is Test {
         token = new FakeERC20("Test Token", "TEST");
         contributorEligibility = new FakeMissionEligibility();
         verifierEligibility = new FakeMissionEligibility();
-        MissionConfig memory config = MissionConfigHelper.createTestConfig(sponsor, address(token));
+
+        MissionConfig memory config = MissionConfigHelper.createTestConfig(sponsor);
 
         // Ensure the sponsor has enough tokens to fund the mission
         token.mint(sponsor, config.bountyAmount);
@@ -42,7 +43,8 @@ contract MissionTest is Test {
             config,
             address(contributorEligibility),
             address(verifierEligibility),
-            missionFactoryOwner // Pass the MissionFactory owner (this test contract)
+            address(token),
+            missionFactoryOwner
         );
 
         // Approve the mission contract to spend tokens on behalf of the sponsor
@@ -67,13 +69,11 @@ contract MissionTest is Test {
             address configSponsor,
             uint256 configStartDate,
             uint256 configEndDate,
-            address configTokenAddress,
             uint256 configBountyAmount,
             DistributionStrategy configDistributionStrategy,
             string memory configAddtlDataCid
         ) = mission.config();
         assertEq(configSponsor, sponsor);
-        assertEq(configTokenAddress, address(token));
         assertEq(address(mission.contributorEligibility()), address(contributorEligibility));
         assertEq(configBountyAmount, 1000);
         assertEq(uint(configDistributionStrategy), uint(DistributionStrategy.Equal));
@@ -177,5 +177,25 @@ contract MissionTest is Test {
         vm.prank(sponsor);
         vm.expectRevert(MissionNotEndedYet.selector);
         mission.returnUnclaimedFunds();
+    }
+
+    function testFundWithERC20() public {
+        uint256 fundAmount = 1000;
+        token.mint(address(this), fundAmount);
+        token.approve(address(mission), fundAmount);
+
+        vm.expectEmit(true, false, false, true);
+        emit Mission.MissionFunded(address(this), fundAmount);
+        mission.fundWithERC20(fundAmount);
+
+        assertEq(token.balanceOf(address(mission)), fundAmount);
+    }
+
+    function testFundWithERC20InsufficientBalance() public {
+        uint256 fundAmount = 1000;
+        token.approve(address(mission), fundAmount);
+
+        vm.expectRevert(InsufficientFunds.selector);
+        mission.fundWithERC20(fundAmount);
     }
 }

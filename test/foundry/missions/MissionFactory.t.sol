@@ -2,10 +2,11 @@
 pragma solidity ^0.8.0;
 
 import {Test} from "forge-std/Test.sol";
+import {IAccessControl} from "openzeppelin/contracts/access/IAccessControl.sol";
 
 import {DistributionStrategy} from "ethos/DistributionStrategy.sol";
 import {MissionConfig} from "ethos/missions/MissionConfig.sol";
-import {MissionFactory, EligibilityModuleNotFound, InsufficientFunds} from "ethos/missions/MissionFactory.sol";
+import {MissionFactory, EligibilityModuleNotFound, InvalidTokenAddress} from "ethos/missions/MissionFactory.sol";
 import {ModuleRegistry} from "ethos/modules/ModuleRegistry.sol";
 import {IEligibilityModuleManager} from "ethos/modules/eligibility/interfaces/IEligibilityModuleManager.sol";
 
@@ -24,11 +25,43 @@ contract MissionFactoryTest is Test {
         moduleRegistry = new ModuleRegistry();
         fakeToken = new FakeERC20("Fake Token", "FTK");
 
-        missionFactory = new MissionFactory();
+        missionFactory = new MissionFactory(address(fakeToken));
     }
 
     function testConstructor() public view {
         assertEq(missionFactory.owner(), owner);
+        assertEq(missionFactory.allowedToken(), address(fakeToken));
+    }
+
+    function testSetAllowedToken() public {
+        address newToken = address(new FakeERC20("New Token", "NTK"));
+
+        vm.expectEmit(true, false, false, false);
+        emit MissionFactory.AllowedTokenUpdated(newToken);
+        missionFactory.setAllowedToken(newToken);
+
+        assertEq(missionFactory.allowedToken(), newToken);
+    }
+
+    function testSetAllowedTokenRevertsForZeroAddress() public {
+        // Grant admin role first
+        missionFactory.grantRole(missionFactory.DEFAULT_ADMIN_ROLE(), address(this));
+
+        vm.expectRevert(abi.encodeWithSelector(InvalidTokenAddress.selector));
+        missionFactory.setAllowedToken(address(0));
+    }
+
+    function testSetAllowedTokenRevertsForNonAdmin() public {
+        vm.startPrank(address(1));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                address(1),
+                missionFactory.DEFAULT_ADMIN_ROLE()
+            )
+        );
+        missionFactory.setAllowedToken(address(1));
+        vm.stopPrank();
     }
 
     function _createFakeMissionConfig() internal view returns (MissionConfig memory) {
@@ -39,7 +72,6 @@ contract MissionFactoryTest is Test {
                 startDate: block.timestamp,
                 // solhint-disable-next-line not-rely-on-time
                 endDate: block.timestamp + 7 days,
-                tokenAddress: address(fakeToken),
                 bountyAmount: 1000 * 10 ** 18,
                 distributionStrategy: DistributionStrategy.Equal,
                 addtlDataCid: "QmTestAddtlDataCid"
@@ -74,12 +106,7 @@ contract MissionFactoryTest is Test {
 
     function testCreateMission() public {
         MissionConfig memory config = _createFakeMissionConfig();
-
         (address contributorEligibility, address verifierEligibility) = _setupAllModules();
-
-        fakeToken.approve(address(missionFactory), config.bountyAmount);
-        fakeToken.mint(address(this), config.bountyAmount);
-        uint256 balanceBefore = fakeToken.balanceOf(address(this));
 
         vm.expectEmit(false, false, false, false);
         emit MissionFactory.MissionCreated(address(0)); // We can't predict the exact address, so we use a dummy
@@ -90,24 +117,6 @@ contract MissionFactoryTest is Test {
         );
 
         assertTrue(missionAddress != address(0), "Mission address should not be zero");
-
-        uint256 balanceAfter = fakeToken.balanceOf(address(this));
-        assertEq(balanceAfter, balanceBefore - config.bountyAmount, "Incorrect amount transferred");
-
-        uint256 missionBalance = fakeToken.balanceOf(missionAddress);
-        assertEq(missionBalance, config.bountyAmount, "Mission did not receive correct amount");
-    }
-
-    function testCreateMissionRevertsInsufficientFunds() public {
-        MissionConfig memory config = _createFakeMissionConfig();
-        config.bountyAmount = fakeToken.balanceOf(address(this)) + 1;
-
-        (address contributorEligibility, address verifierEligibility) = _setupAllModules();
-
-        fakeToken.approve(address(missionFactory), config.bountyAmount);
-
-        vm.expectRevert(InsufficientFunds.selector);
-        missionFactory.createMission(config, contributorEligibility, verifierEligibility);
     }
 
     function testCreateMissionRevertsContributorEligibilityModuleNotFound() public {
